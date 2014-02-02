@@ -4,7 +4,7 @@ A Leiningen plugin for describing project information.
 
 ## Usage
 
-Put `[describe "0.1.0-SNAPSHOT"]` into the `:plugins` vector of your
+Put `[lein-describe "0.1.0-SNAPSHOT"]` into the `:plugins` vector of your
 `:user` profile.
 
 ## Example
