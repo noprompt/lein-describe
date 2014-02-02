@@ -133,7 +133,7 @@
     (->>
      (for [[[dep version] file] deps
            :let [data (get-pom-data dep file)]
-           :when data]
+           :when (and data (not= "clojure" (name dep)))]
        (try 
          (lines (normalize-xml data))
          (catch Exception e
