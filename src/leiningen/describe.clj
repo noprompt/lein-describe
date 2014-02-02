@@ -132,9 +132,8 @@
   (let [deps (get-project-dependencies project)]
     (->>
      (for [[[dep version] file] deps
-           ;; Clojure causes problems with normalize-xml-data...
            :let [data (get-pom-data dep file)]
-           :when (and data (not= "clojure" (name dep)))]
+           :when data]
        (try 
          (lines (normalize-xml data))
          (catch Exception e
