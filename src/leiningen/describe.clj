@@ -12,19 +12,20 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; POM data
 
-;; TODO: This solution isn't complete and, currently, fails
-;; often. Maybe xml-zip isn't the way to go?
 (defn- normalize-xml* [xml-data]
-  (loop [z (-> xml-data zip/xml-zip zip/down)]
-    (if (zip/end? z)
-      (:content (zip/root z))
-      (-> z
-          (zip/edit (fn [{:keys [tag content] :as node}]
-                      (if (string? (first content))
-                        {tag content}
-                        {tag (normalize-xml* node)})))
-          (zip/next)
-          (recur)))))
+  (let [z (-> xml-data zip/xml-zip zip/down)]
+    (if (nil? z)
+      (:content xml-data)
+      (loop [z z]
+        (if (zip/end? z)
+          (:content (zip/root z))
+          (-> z
+              (zip/edit (fn [{:keys [tag content] :as node}]
+                          (if (string? (first content))
+                            {tag content}
+                            {tag (normalize-xml* node)})))
+              (zip/next)
+              (recur)))))))
 
 (defn- normalize-xml
   "Return a map of {xml-tag-name content}."
@@ -41,6 +42,7 @@
     (when pom
       (-> (.getInputStream jar pom)
           xml/parse))))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Display helpers
