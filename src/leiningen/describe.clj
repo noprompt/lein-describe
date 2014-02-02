@@ -16,7 +16,7 @@
 ;; often. Maybe xml-zip isn't the way to go?
 (defn- normalize-xml* [xml-data]
   (loop [z (-> xml-data zip/xml-zip zip/down)]
-    (if (or (zip/end? z))
+    (if (zip/end? z)
       (:content (zip/root z))
       (-> z
           (zip/edit (fn [{:keys [tag content] :as node}]
