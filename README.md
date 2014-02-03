@@ -17,7 +17,6 @@ Put `[lein-describe "0.1.0"]` into the `:plugins` vector of your
 
 	$ cd /path/to/clojure/project
     $ lein describe
-	...
 	PROJECT DEPENDENCIES:
 	------------------------------------------------------------------------
 	Dependency: [com.cemerick/piggieback "0.1.2"]
@@ -28,7 +27,6 @@ Put `[lein-describe "0.1.0"]` into the `:plugins` vector of your
 				  [org.clojure/tools.nrepl "0.2.3"]
 				  [org.clojure/clojurescript "0.0-2014"]
 				  [clojure-complete "0.2.3"]
-
 	...
 
 	PLUGIN DEPENDENCIES:
@@ -42,8 +40,6 @@ Put `[lein-describe "0.1.0"]` into the `:plugins` vector of your
 				  [com.cemerick/piggieback "0.1.2"]
 				  [org.clojure/tools.nrepl "0.2.3"]
 				  [clojure-complete "0.2.3"]
-
-	Dependency: [org.clojure/clojurescript "0.0-2156"]
 	...
 
 ## Contributing
