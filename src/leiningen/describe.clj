@@ -177,13 +177,18 @@
   (let [project-deps (get-project-dependencies project)]
     (println "PROJECT DEPENDENCIES:")
     (println separator)
-    (println (lines-for-dependencies project-deps))))
+    (println (if (seq project-deps)
+               (lines-for-dependencies project-deps)
+               ;; Highly unlikely but for the sake of consistency.
+               "This project has no dependencies."))))
 
 (defn- display-plugin-dependencies [project]
   (let [plugin-deps (get-plugin-dependencies project)]
     (println "PLUGIN DEPENDENCIES:")
     (println separator)
-    (println (lines-for-dependencies plugin-deps))))
+    (println (if (seq plugin-deps)
+               (lines-for-dependencies plugin-deps)
+               "This project has no plugins."))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; CLI 
