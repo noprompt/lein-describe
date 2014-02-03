@@ -1,6 +1,7 @@
 (ns leiningen.describe
   (:require [leiningen.core.classpath :as classpath]
             [leiningen.core.main :as main]
+            [leiningen.core.user :as user]
             [cemerick.pomegranate.aether :as aether]
             [clojure.java.io :as io]
             [clojure.xml :as xml]
@@ -39,13 +40,16 @@
         pom-path (format "META-INF/maven/%s/%s/pom.xml" group artifact)
         jar      (JarFile. file)
         pom      (.getEntry jar pom-path)]
-    (when pom
-      (-> (.getInputStream jar pom)
-          xml/parse))))
+    (and pom (xml/parse (.getInputStream jar pom)))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Display helpers
+
+(defn- format-dependency [dep version]
+  (if version
+    (format "[%s %s]" (str dep) (pr-str version))
+    (format "[%s]" (str dep))))
 
 (defn- dependency-name [data]
   (let [groupId (first (:groupId data))
@@ -68,8 +72,8 @@
     (for [dep deps
           :let [d (reduce merge (:dependency dep))
                 n (dependency-name d)
-                v (pr-str (dependency-version d))]]
-      (format "[%s %s]" n v))))
+                v (dependency-version d)]]
+      (format-dependency n v))))
 
 (defn- dependency-licenses [data]
   (when-let [lics (seq (:licenses data))]
@@ -118,10 +122,29 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Dependency helpers 
 
+(defn- remove-user-profile-dependencies
+  "Return an updatede project map with user profile dependencies
+  removed."
+  [project]
+  (let [profile-deps (map
+                      (fn [[dep version & more]]
+                        ;; Dependency symbols from a project posess
+                        ;; both a namespace and a name, the ones from
+                        ;; (user/profile) do not...
+                        (let [dep (if-not (namespace dep)
+                                    (symbol (str dep) (str dep))
+                                    dep)]
+                          (into [dep version] more)))
+                      (get-in (user/profiles) [:user :dependencies]))]
+    (update-in project [:dependencies]
+               (fn [project-deps]
+                 (remove (set profile-deps) project-deps)))))
+
 (defn- get-project-dependencies
   "Return a map of {[dependency version & more] #<File /path/to.jar>}."
   [project]
-  (as-> (classpath/get-dependencies :dependencies project) _
+  (as-> (remove-user-profile-dependencies project) _
+        (classpath/get-dependencies :dependencies _)
         (zipmap (keys _) (aether/dependency-files _))
         (select-keys _ (:dependencies project))))
 
@@ -135,10 +158,12 @@
     (->>
      (for [[[dep version] file] deps
            :let [data (get-pom-data dep file)]
-           :when (and data (not= "clojure" (name dep)))]
-       (try 
-         (lines (normalize-xml data))
-         (catch Exception e
-           (str (format "Error: There was a problem describing [%s %s]" (str dep) (pr-str version))))))
+           :when (not= "clojure" (name dep))]
+       (if data
+         (try
+           (lines (normalize-xml data))
+           (catch Exception e
+             (str "Error: There was a problem describing " (format-dependency dep version))))
+         (str "Could not find data for " (format-dependency dep version))))
      (string/join "\n\n")
      (println))))
