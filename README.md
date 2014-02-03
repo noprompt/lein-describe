@@ -10,7 +10,7 @@ at dependency descriptions, licenses, and more.
 
 ## Usage
 
-Put `[lein-describe "0.1.0-SNAPSHOT"]` into the `:plugins` vector of your
+Put `[lein-describe "0.1.0"]` into the `:plugins` vector of your
 `:user` [profile][leiningen-profiles].
 
 ## Example
