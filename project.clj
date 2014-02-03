@@ -1,4 +1,4 @@
-(defproject lein-describe "0.1.0"
+(defproject lein-describe "0.2.0-SNAPSHOT"
   :description "A Leiningen plugin for displaying detailed project information."
   :url "https://github.com/noprompt/lein-garden"
   :license {:name "Unlicense"
