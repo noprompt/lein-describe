@@ -140,13 +140,50 @@
                (fn [project-deps]
                  (remove (set profile-deps) project-deps)))))
 
-(defn- get-project-dependencies
+(defn- get-dependencies-from-key
   "Return a map of {[dependency version & more] #<File /path/to.jar>}."
-  [project]
-  (as-> (remove-user-profile-dependencies project) _
-        (classpath/get-dependencies :dependencies _)
+  [project k]
+  (as-> (classpath/get-dependencies k project) _
         (zipmap (keys _) (aether/dependency-files _))
-        (select-keys _ (:dependencies project))))
+        (select-keys _ (k project))))
+
+(defn- get-project-dependencies [project]
+  (-> (remove-user-profile-dependencies project)
+      (get-dependencies-from-key :dependencies)))
+
+(defn- get-plugin-dependencies [project]
+  (get-dependencies-from-key project :plugins))
+
+(defn- lines-for-dependencies [deps]
+  (string/join
+   "\n\n"
+   (for [[[dep version] file] deps
+         :let [data (get-pom-data dep file)]
+         ;; Clojure is almost always going to be a dependency of any
+         ;; Leiningen project, including it in the output seems
+         ;; unecessary.
+         :when (not= "clojure" (name dep))]
+     (if data
+       (try
+         (lines (normalize-xml data))
+         (catch Exception e
+           (str "Error: There was a problem describing " (format-dependency dep version))))
+       (str "Could not find data for " (format-dependency dep version))))))
+
+(def ^:private separator
+  (apply str (repeat 72 "-")))
+
+(defn- display-project-dependencies [project]
+  (let [project-deps (get-project-dependencies project)]
+    (println "PROJECT DEPENDENCIES:")
+    (println separator)
+    (println (lines-for-dependencies project-deps))))
+
+(defn- display-plugin-dependencies [project]
+  (let [plugin-deps (get-plugin-dependencies project)]
+    (println "PLUGIN DEPENDENCIES:")
+    (println separator)
+    (println (lines-for-dependencies plugin-deps))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; CLI 
@@ -154,16 +191,6 @@
 (defn describe
   "Display information about project dependecies."
   [project & args]
-  (let [deps (get-project-dependencies project)]
-    (->>
-     (for [[[dep version] file] deps
-           :let [data (get-pom-data dep file)]
-           :when (not= "clojure" (name dep))]
-       (if data
-         (try
-           (lines (normalize-xml data))
-           (catch Exception e
-             (str "Error: There was a problem describing " (format-dependency dep version))))
-         (str "Could not find data for " (format-dependency dep version))))
-     (string/join "\n\n")
-     (println))))
+  (display-project-dependencies project)
+  (print "\n\n")
+  (display-plugin-dependencies project))
