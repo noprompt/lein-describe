@@ -1,33 +1,55 @@
 # lein-describe
 
-A Leiningen plugin for describing project information.
+Have you ever be involved in a Clojure project and wondered "how
+are these dependencies used?" or "what do these plugins do?". This
+plugin can help you answer those questions.
+
+`lein-describe` provides detailed information about Clojure project
+dependencies and plugins. With a single command you can get a glance
+at dependency descriptions, licenses, and more.
 
 ## Usage
 
 Put `[lein-describe "0.1.0-SNAPSHOT"]` into the `:plugins` vector of your
-`:user` profile.
+`:user` [profile][leiningen-profiles].
 
 ## Example
 
 	$ cd /path/to/clojure/project
     $ lein describe
 	...
-	Dependency: [org.clojure/clojurescript "0.0-2156"]
-	Description: ClojureScript compiler and core runtime library.
-	URL: https://github.com/clojure/clojurescript
-	License(s): Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
-	Dependencies: [com.google.javascript/closure-compiler "v20131014"]
-				  [org.clojure/google-closure-library "0.0-20130212-95c19e7f0f5f"]
-				  [org.clojure/data.json "0.2.3"]
-				  [org.mozilla/rhino "1.7R4"]
-				  [org.clojure/tools.reader "0.8.3"]
-
-	Dependency: [com.cemerick/clojurescript.test "0.2.2"]
-	Description: Port of clojure.test targeting ClojureScript.
-	URL: http://github.com/cemerick/clojurescript.test
+	PROJECT DEPENDENCIES:
+	------------------------------------------------------------------------
+	Dependency: [com.cemerick/piggieback "0.1.2"]
+	Description: Adding support for running ClojureScript REPLs over nREPL.
+	URL: http://github.com/cemerick/piggieback
 	License(s): Eclipse Public License (http://www.eclipse.org/legal/epl-v10.html)
 	Dependencies: [org.clojure/clojure "1.5.1"]
-				  [org.clojure/clojurescript "0.0-1934"]
+				  [org.clojure/tools.nrepl "0.2.3"]
+				  [org.clojure/clojurescript "0.0-2014"]
+				  [clojure-complete "0.2.3"]
+
+	...
+
+	PLUGIN DEPENDENCIES:
+	------------------------------------------------------------------------
+	Dependency: [com.cemerick/austin "0.1.3"]
+	Description: The ClojureScript browser-repl, rebuilt stronger, faster, easier.
+	URL: http://github.com/cemerick/austin
+	License(s): Eclipse Public License (http://www.eclipse.org/legal/epl-v10.html)
+	Dependencies: [org.clojure/clojure "1.5.1"]
+				  [org.clojure/clojurescript "0.0-2014"]
+				  [com.cemerick/piggieback "0.1.2"]
 				  [org.clojure/tools.nrepl "0.2.3"]
 				  [clojure-complete "0.2.3"]
+
+	Dependency: [org.clojure/clojurescript "0.0-2156"]
 	...
+
+## Contributing
+
+Contributions and suggestions are welcome. If you find something
+missing or discover a bug please open an [issue][issues]. 
+
+[leiningen-profiles]: https://github.com/technomancy/leiningen/blob/master/doc/PROFILES.md
+[issues]: https://github.com/noprompt/lein-describe/issues
