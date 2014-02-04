@@ -11,6 +11,21 @@
   (:import (java.util.jar JarFile)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Utilities
+
+;; Take from aether. Not sure why this isn't public.
+(def ^{:private true} default-local-repo
+  (io/file (System/getProperty "user.home") ".m2" "repository"))
+
+(defn- group-and-artifact
+  "Return a vector of [group artifact] from a dependency name."
+  [dep]
+  (let [dep (symbol dep)
+        group (or (namespace dep) (name dep))
+        artifact (name dep)]
+    [group artifact]))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; POM data
 
 (defn- normalize-xml* [xml-data]
@@ -33,13 +48,24 @@
   [xml-data]
   (reduce merge (normalize-xml* xml-data)))
 
+(defn- locate-jar
+  "Given a dependency name and version attempt to locate it's jar."
+  [dep version]
+  (let [[group artifact] (group-and-artifact dep)
+        group-path (apply io/file (string/split (str group) #"\."))
+        jar-basename (format "%s-%s.jar" (str artifact) version)
+        file (io/file default-local-repo group-path artifact version jar-basename)]
+    (when (.exists file)
+      file)))
 
-(defn- get-pom-data [dep file]
-  (let [group    (or (namespace dep) (name dep))
-        artifact (name dep)
+(defn- get-pom-data
+  "Given a dependency name and a File attempt to extract data from a
+   pom.xml file. Returns the result of xml/parse from the file."
+  [dep file]
+  (let [[group artifact] (group-and-artifact dep)
         pom-path (format "META-INF/maven/%s/%s/pom.xml" group artifact)
-        jar      (JarFile. file)
-        pom      (.getEntry jar pom-path)]
+        jar (JarFile. file)
+        pom (.getEntry jar pom-path)]
     (and pom (xml/parse (.getInputStream jar pom)))))
 
 
@@ -122,10 +148,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Dependency helpers 
 
-(defn- remove-user-profile-dependencies
-  "Return an updatede project map with user profile dependencies
-  removed."
-  [project]
+(defn- remove-user-profile-dependencies-from-key [project k]
   (let [profile-deps (map
                       (fn [[dep version & more]]
                         ;; Dependency symbols from a project posess
@@ -135,30 +158,39 @@
                                     (symbol (str dep) (str dep))
                                     dep)]
                           (into [dep version] more)))
-                      (get-in (user/profiles) [:user :dependencies]))]
-    (update-in project [:dependencies]
-               (fn [project-deps]
-                 (remove (set profile-deps) project-deps)))))
+                      (get-in (user/profiles) [:user k]))]
+    (update-in project [k]
+               (fn [x-deps]
+                 (remove (set profile-deps) x-deps)))))
+
+(defn- remove-user-profile-dependencies
+  "Return an updated project map with user profile dependencies
+  removed."
+  [project]
+  (remove-user-profile-dependencies-from-key project :dependencies))
 
 (defn- get-dependencies-from-key
   "Return a map of {[dependency version & more] #<File /path/to.jar>}."
   [project k]
-  (as-> (classpath/get-dependencies k project) _
-        (zipmap (keys _) (aether/dependency-files _))
-        (select-keys _ (k project))))
+  (reduce
+   (fn [m [dep version & more]]
+     (assoc m [dep version] (locate-jar dep version)))
+   {}
+   (k project)))
 
 (defn- get-project-dependencies [project]
-  (-> (remove-user-profile-dependencies project)
+  (-> (remove-user-profile-dependencies-from-key project :dependencies)
       (get-dependencies-from-key :dependencies)))
 
 (defn- get-plugin-dependencies [project]
-  (get-dependencies-from-key project :plugins))
+  (-> (remove-user-profile-dependencies-from-key project :plugins)
+      (get-dependencies-from-key :plugins)))
 
 (defn- lines-for-dependencies [deps]
   (string/join
    "\n\n"
    (for [[[dep version] file] deps
-         :let [data (get-pom-data dep file)]
+         :let [data (and file (get-pom-data dep file))]
          ;; Clojure is almost always going to be a dependency of any
          ;; Leiningen project, including it in the output seems
          ;; unecessary.
