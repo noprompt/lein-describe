@@ -27,6 +27,11 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; POM data
+;; See the approach in clojars for interfacing with maven
+;; https://github.com/ato/clojars-web/blob/master/src/clojars/maven.clj
+                 ;; [org.apache.maven/maven-model "3.0.4"
+                 ;;  :exclusions
+                 ;;  [org.codehaus.plexus/plexus-utils]]
 
 (defn- normalize-xml* [xml-data]
   (let [z (-> xml-data zip/xml-zip zip/down)]
@@ -53,6 +58,7 @@
   [dep version]
   (let [[group artifact] (group-and-artifact dep)
         group-path (apply io/file (string/split (str group) #"\."))
+        ;; TODO: artifact-classifier-version cases won't get handled here.
         jar-basename (format "%s-%s.jar" (str artifact) version)
         file (io/file default-local-repo group-path artifact version jar-basename)]
     (when (.exists file)
@@ -109,7 +115,6 @@
                 u (first (:url l))]]
       (format "%s (%s)" n u))))
 
-
 (defn- dependency-line [data]
   (format "Dependency: [%s %s]"
           (dependency-name data)
@@ -126,8 +131,8 @@
   (let [ds (dependency-dependencies data)
         delimiter "\n              "]
     (str "Dependencies: " (if (seq ds)
-                           (string/join delimiter ds)
-                           "none"))))
+                            (string/join delimiter ds)
+                            "none"))))
 (defn- licenses-line [data]
   (let [ls (dependency-licenses data)
         delimiter "\n            "]
@@ -146,7 +151,7 @@
   (string/join "\n" (lines* data)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Dependency helpers 
+;; Dependency helpers
 
 (defn- remove-user-profile-dependencies-from-key [project k]
   (let [profile-deps (map
@@ -202,8 +207,29 @@
            (str "Error: There was a problem describing " (format-dependency dep version))))
        (str "Could not find data for " (format-dependency dep version))))))
 
+(defn- dependency-map [deps]
+  (for [[[dep version] file] deps
+        :let [data (and file (get-pom-data dep file))]
+        ;; Clojure is almost always going to be a dependency of any
+        ;; Leiningen project, including it in the output seems
+        ;; unecessary.
+        :when (not= "clojure" (name dep))]
+    (if data
+      (try
+        (lines (normalize-xml data))
+        (catch Exception e
+          (str "Error: There was a problem describing " (format-dependency dep version))))
+      (str "Could not find data for " (format-dependency dep version)))))
+
 (def ^:private separator
   (apply str (repeat 72 "-")))
+
+(defn- project-dependencies [project]
+  ;; get-project-dependencies: {[ "name" "ver"] file}
+  (let [project-deps (get-project-dependencies project)]
+    (if (seq project-deps)
+      (lines-for-dependencies project-deps)
+    )))
 
 (defn- display-project-dependencies [project]
   (let [project-deps (get-project-dependencies project)]
@@ -223,11 +249,21 @@
                "This project has no plugins."))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; CLI 
+;; CLI
+
+(def sample-project
+  {:dependencies '(["org.clojure/clojure" "1.5.1"] ["org.clojure/tools.reader" "0.8.1"])
+   :name "clj-utils"
+   :repositories '(["central" {:snapshots false
+                              :url "http://repo1.maven.org/maven2/"}] ["clojars" {:url "https://clojars.org/repo/"}])
+   :plugins '(["lein-difftest/lein-difftest" "2.0.0"]
+             ["lein-pprint/lein-pprint" "1.1.1"])
+   })
 
 (defn describe
   "Display information about project dependecies."
   [project & args]
+  (println project)
   (display-project-dependencies project)
   (print "\n\n")
   (display-plugin-dependencies project))
