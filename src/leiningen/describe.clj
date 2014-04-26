@@ -115,40 +115,57 @@
                 u (first (:url l))]]
       (format "%s (%s)" n u))))
 
-(defn- dependency-line [data]
+(defn coordinates->string [data]
   (format "Dependency: [%s %s]"
-          (dependency-name data)
-          (pr-str (dependency-version data))))
+          (:name data)
+          (pr-str (:version data))))
 
-(defn- description-line [data]
-  (let [d (or (dependency-description data) "none")]
+(defn transitive-coordinates->string [data]
+  (format "[%s %s]"
+          (:name data)
+          (pr-str (:version data))))
+
+(defn description->string [data]
+  (let [d (or (:description data) "none")]
     (str "Description: " (string/trim d))))
 
-(defn- url-line [data]
-  (str "URL: " (or (dependency-url data) "none")))
+(defn url->string [data]
+  (str "URL: " (or (:dependency-url data) "none")))
 
-(defn- dependencies-line [data]
-  (let [ds (dependency-dependencies data)
-        delimiter "\n              "]
-    (str "Dependencies: " (if (seq ds)
-                            (string/join delimiter ds)
-                            "none"))))
-(defn- licenses-line [data]
-  (let [ls (dependency-licenses data)
+(defn licenses->string [data]
+  (let [ls (:licenses data)
         delimiter "\n            "]
     (str "License(s): " (if (seq ls)
                           (string/join delimiter ls)
                           "none"))))
 
-(def ^:private lines*
-  (juxt dependency-line
-        description-line
-        url-line
-        licenses-line
-        dependencies-line))
+(defn transitive-deps->string [data]
+  (let [ds (:dependencies data)
+        delimiter "\n              "]
+    (str "Dependencies: " (if (seq ds)
+                            (string/join delimiter
+                                         (for [d ds
+                                               :when (not= "test" (:scope d))]
+                                           (transitive-coordinates->string d)))
+                            "none"))))
 
-(defn- lines [data]
-  (string/join "\n" (lines* data)))
+(def ^:private data->strings
+  (juxt coordinates->string
+        description->string
+        url->string
+        licenses->string
+        transitive-deps->string))
+
+(defn ^:private xml->data [data]
+  {:name (dependency-name data)
+   :version (dependency-version data)
+   :url (dependency-url data)
+   :licenses (dependency-licenses data)
+   :scope (or (first (:scope data)) "compile")
+   :dependencies
+   (for [dep (:dependencies data)
+         :let [d (reduce merge (:dependency dep))]]
+     (xml->data d))})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Dependency helpers
@@ -191,35 +208,32 @@
   (-> (remove-user-profile-dependencies-from-key project :plugins)
       (get-dependencies-from-key :plugins)))
 
-(defn- lines-for-dependencies [deps]
-  (string/join
-   "\n\n"
-   (for [[[dep version] file] deps
-         :let [data (and file (get-pom-data dep file))]
-         ;; Clojure is almost always going to be a dependency of any
-         ;; Leiningen project, including it in the output seems
-         ;; unecessary.
-         :when (not= "clojure" (name dep))]
-     (if data
-       (try
-         (lines (normalize-xml data))
-         (catch Exception e
-           (str "Error: There was a problem describing " (format-dependency dep version))))
-       (str "Could not find data for " (format-dependency dep version))))))
-
 (defn- dependency-map [deps]
   (for [[[dep version] file] deps
         :let [data (and file (get-pom-data dep file))]
         ;; Clojure is almost always going to be a dependency of any
         ;; Leiningen project, including it in the output seems
         ;; unecessary.
-        :when (not= "clojure" (name dep))]
+        ;;TODO :when (not= "org.clojure/clojure" dep)
+        :when (not= "clojure" (name dep))
+
+        ;;TODO remove deps with "test" scope
+        ]
     (if data
       (try
-        (lines (normalize-xml data))
+        (xml->data (normalize-xml data))
         (catch Exception e
           (str "Error: There was a problem describing " (format-dependency dep version))))
       (str "Could not find data for " (format-dependency dep version)))))
+
+(defn- lines-for-dependencies [deps-file-map]
+  (let [all-deps-data (dependency-map deps-file-map)]
+    (string/join
+         "\n\n"
+         (for [data all-deps-data]
+           (if (map? data)
+             (string/join "\n" (data->strings data))
+             data)))))
 
 (def ^:private separator
   (apply str (repeat 72 "-")))
@@ -228,8 +242,7 @@
   ;; get-project-dependencies: {[ "name" "ver"] file}
   (let [project-deps (get-project-dependencies project)]
     (if (seq project-deps)
-      (lines-for-dependencies project-deps)
-    )))
+      (dependency-map project-deps))))
 
 (defn- display-project-dependencies [project]
   (let [project-deps (get-project-dependencies project)]
