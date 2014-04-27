@@ -29,9 +29,9 @@
 ;; POM data
 ;; See the approach in clojars for interfacing with maven
 ;; https://github.com/ato/clojars-web/blob/master/src/clojars/maven.clj
-                 ;; [org.apache.maven/maven-model "3.0.4"
-                 ;;  :exclusions
-                 ;;  [org.codehaus.plexus/plexus-utils]]
+;; [org.apache.maven/maven-model "3.0.4"
+;;  :exclusions
+;;  [org.codehaus.plexus/plexus-utils]]
 
 (defn- normalize-xml* [xml-data]
   (let [z (-> xml-data zip/xml-zip zip/down)]
@@ -99,6 +99,9 @@
 (defn- dependency-url [data]
   (first (:url data)))
 
+(defn dependency-scope [data]
+  (or (first (:scope data)) "compile"))
+
 (defn- dependency-dependencies [data]
   (when-let [deps (seq (:dependencies data))]
     (for [dep deps
@@ -130,7 +133,7 @@
     (str "Description: " (string/trim d))))
 
 (defn url->string [data]
-  (str "URL: " (or (:dependency-url data) "none")))
+  (str "URL: " (or (:url data) "none")))
 
 (defn licenses->string [data]
   (let [ls (:licenses data)
@@ -160,8 +163,9 @@
   {:name (dependency-name data)
    :version (dependency-version data)
    :url (dependency-url data)
+   :description (dependency-description data)
    :licenses (dependency-licenses data)
-   :scope (or (first (:scope data)) "compile")
+   :scope (dependency-scope data)
    :dependencies
    (for [dep (:dependencies data)
          :let [d (reduce merge (:dependency dep))]]
@@ -210,21 +214,16 @@
 
 (defn- dependency-map [deps]
   (for [[[dep version] file] deps
-        :let [data (and file (get-pom-data dep file))]
-        ;; Clojure is almost always going to be a dependency of any
-        ;; Leiningen project, including it in the output seems
-        ;; unecessary.
-        ;;TODO :when (not= "org.clojure/clojure" dep)
-        :when (not= "clojure" (name dep))
-
-        ;;TODO remove deps with "test" scope
-        ]
+        :let [data (and file (get-pom-data dep file))]]
     (if data
       (try
         (xml->data (normalize-xml data))
         (catch Exception e
           (str "Error: There was a problem describing " (format-dependency dep version))))
       (str "Could not find data for " (format-dependency dep version)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; String Report
 
 (defn- lines-for-dependencies [deps-file-map]
   (let [all-deps-data (dependency-map deps-file-map)]
@@ -237,12 +236,6 @@
 
 (def ^:private separator
   (apply str (repeat 72 "-")))
-
-(defn- project-dependencies [project]
-  ;; get-project-dependencies: {[ "name" "ver"] file}
-  (let [project-deps (get-project-dependencies project)]
-    (if (seq project-deps)
-      (dependency-map project-deps))))
 
 (defn- display-project-dependencies [project]
   (let [project-deps (get-project-dependencies project)]
@@ -265,18 +258,16 @@
 ;; CLI
 
 (def sample-project
-  {:dependencies '(["org.clojure/clojure" "1.5.1"] ["org.clojure/tools.reader" "0.8.1"])
-   :name "clj-utils"
-   :repositories '(["central" {:snapshots false
-                              :url "http://repo1.maven.org/maven2/"}] ["clojars" {:url "https://clojars.org/repo/"}])
-   :plugins '(["lein-difftest/lein-difftest" "2.0.0"]
-             ["lein-pprint/lein-pprint" "1.1.1"])
+  {:name "sample-project"
+   :dependencies [["org.clojure/clojure" "1.5.1"]
+                  ["org.clojure/tools.reader" "0.8.1"]]
+   :plugins [["lein-difftest/lein-difftest" "2.0.0"]
+             ["com.jakemccrary/lein-test-refresh" "0.2.0"]]
    })
 
 (defn describe
-  "Display information about project dependecies."
+  "Display information about project dependencies."
   [project & args]
-  (println project)
   (display-project-dependencies project)
   (print "\n\n")
   (display-plugin-dependencies project))
