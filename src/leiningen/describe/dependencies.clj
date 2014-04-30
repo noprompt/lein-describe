@@ -1,4 +1,4 @@
-(ns leiningen.describe.reports.text
+(ns leiningen.describe.dependencies
   (:require [leiningen.core.user :as user]
             [leiningen.describe.pom-data :as pom]))
 
@@ -83,15 +83,7 @@
    {}
    (k project)))
 
-(defn- get-project-dependencies [project]
-  (-> (remove-user-profile-dependencies-from-key project :dependencies)
-      (get-dependencies-from-key :dependencies)))
-
-(defn- get-plugin-dependencies [project]
-  (-> (remove-user-profile-dependencies-from-key project :plugins)
-      (get-dependencies-from-key :plugins)))
-
-(defn- dependency-map [deps]
+(defn dependency-map [deps]
   (for [[[dep version] file] deps
         :let [data (and file (pom/get-data dep file))]]
     (if data
@@ -100,3 +92,7 @@
         (catch Exception e
           (str "Error: There was a problem describing " (format-dependency dep version))))
       (str "Could not find data for " (format-dependency dep version)))))
+
+(defn resolve [project scope]
+  (-> (remove-user-profile-dependencies-from-key project scope)
+      (get-dependencies-from-key scope)))

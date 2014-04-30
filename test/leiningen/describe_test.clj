@@ -13,5 +13,5 @@
 (deftest should-do-something
   (let [text (as-text sample-project)]
     (is (not (empty? text)))
-    (is (= true (.contains text "tools.reader")))
-    (is (= true (.contains text "lein-difftest")))))
+    (is (= true (.contains text "tools.reader")) text)
+    (is (= true (.contains text "lein-difftest")) text)))

@@ -3,9 +3,9 @@
 
 (defn as-text [project]
   (str
-   (text/display-project-dependencies project)
+   (text/deps->string project :dependencies)
    "\n\n"
-   (text/display-plugin-dependencies project)))
+   (text/deps->string project :plugins)))
 
 (defn describe
   "Display information about project dependencies."
